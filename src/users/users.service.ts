@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOneOptions, Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -29,6 +29,22 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    const username = await this.findByUsername(createUserDto.username);
+    const email = await this.findOne({
+      where: {
+        email: createUserDto.email,
+      },
+    });
+    if (username) {
+      throw new ConflictException(
+        'Пользователь с таким username уже зарегистрирован.',
+      );
+    }
+    if (email) {
+      throw new ConflictException(
+        'Пользователь с таким email уже зарегистрирован.',
+      );
+    }
     const { password } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = this.userRepository.create({
@@ -39,6 +55,26 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
+    if (updateUserDto.username) {
+      const username = await this.findByUsername(updateUserDto.username);
+      if (username) {
+        throw new ConflictException(
+          'Пользователь с таким username уже зарегистрирован.',
+        );
+      }
+    }
+    if (updateUserDto.email) {
+      const email = await this.findOne({
+        where: {
+          email: updateUserDto.email,
+        },
+      });
+      if (email) {
+        throw new ConflictException(
+          'Пользователь с таким email уже зарегистрирован.',
+        );
+      }
+    }
     const user = await this.findOne({ where: { id } });
 
     const { password } = updateUserDto;
